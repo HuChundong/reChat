@@ -44,23 +44,23 @@ dat2img -i <input_path> -o <output_path> -v <version> -x <xorKey>
 
 1. 纯 XOR 解密 
    ```bash
-   dat2img -i img.dat -o img.jpg -v 0 -x 0x77
+   dat2img -i wx_image.dat -o wx_image.jpg -v 0 -x 101
    ```
 
 2. 解密 V1 版本微信图片  
    ```bash
-   dat2img -i wx_image.dat -o wx_image.jpg -v 1 -x 0x77
+   dat2img -i wx_image.dat -o wx_image.jpg -v 1 -x 101
    ```
 
 3. 解密 V2 版本微信图片  
    ```bash
-   dat2img -i wx_image.dat -o wx_image.png -v 2 -x 0x77
+   dat2img -i wx_image.dat -o wx_image.png -v 2 -x 101
    ```
 
 ## 常见问题
 
 - **Q:** 解密后图片无法打开？  
-  **A:** 请确认 `version` 与 `xorKey` 设置正确，或尝试不同的 `xorKey`（如 0x77、0x88 等）。
+  **A:** 请确认 `version` 与 `xorKey` 设置正确，或尝试不同的 `xorKey`。
 
 - **Q:** 支持批量解密吗？  
   **A:** 当前版本仅支持单文件操作，可通过 shell 脚本或批处理自行循环调用。
@@ -73,7 +73,7 @@ dat2img -i <input_path> -o <output_path> -v <version> -x <xorKey>
 
 ## 贡献
 
-欢迎提交 Issue!
+欢迎提交 Issue！
 
 ## 许可证
 

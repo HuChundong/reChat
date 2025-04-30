@@ -15,7 +15,7 @@
 
 ## 安装
 
-从 Releases 页面下载预编译的二进制文件。
+从 [Releases](https://github.com/recarto404/reChat/releases/latest) 页面下载预编译的二进制文件。
 
 ## 使用方法
 

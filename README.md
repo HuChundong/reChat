@@ -67,7 +67,6 @@ dat2img -i <input_path> -o <output_path> -v <version> -x <xorKey>
 
 ## 计划
 
-- [ ] 开源完整代码
 - [ ] 实现对 `wxgf` 格式微信图片的解码支持  
 - [ ] 增加批量处理功能，一次性解密多个文件
 

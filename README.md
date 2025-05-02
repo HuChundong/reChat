@@ -15,7 +15,7 @@
 
 ## 安装
 
-从 [Releases](https://github.com/recarto404/reChat/releases/latest) 页面下载预编译的二进制文件。
+从 [Releases](https://github.com/recarto404/reChat/releases) 页面下载预编译的二进制文件。
 
 ## 使用方法
 
@@ -54,7 +54,7 @@ dat2img -i <input_path> -o <output_path> -v <version> -x <xorKey>
 
 3. 解密 V2 版本微信图片  
    ```bash
-   dat2img -i wx_image.dat -o wx_image.png -v 2 -x 101
+   dat2img -i wx_image.dat -o wx_image.jpg -v 2 -x 101
    ```
 
 ## 常见问题

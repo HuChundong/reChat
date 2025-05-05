@@ -61,7 +61,7 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> | -f <templat
 - **Q:** 解密后图片无法打开？  
   **A:** 请确认 `version` 与 `xorKey` 设置正确，或尝试不同的 `xorKey`。如果使用 `-f` 参数，请确保模板文件有效。
 
-- **Q:** 如何选择合适的模板文件？
+- **Q:** 如何选择合适的模板文件？  
   **A:** 建议使用与目标 `.dat` 文件来自同一微信账号的 `_t.dat` 文件。通常，同一个微信账号使用相同的 XOR 密钥。
 
 - **Q:** 支持批量解密吗？  

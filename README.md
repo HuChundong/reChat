@@ -46,7 +46,7 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> | -f <templat
 
 ## 示例
 
-1. 密 V1 版本微信图片，手动指定异或密钥解密
+1. 解密 V1 版本微信图片，手动指定异或密钥解密
    ```bash
    dat2img -i wx_image.dat -o wx_image.jpg -v 1 -x 101
    ```

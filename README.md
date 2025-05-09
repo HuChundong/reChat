@@ -1,18 +1,19 @@
 # WxDat Decrypt
 
 > 一个用于解密微信图片文件的工具
+> 
+> 本项目仅供学习交流使用，**可能存在封号风险，请勿用于非法用途**，否则后果自负。
 
 ## 功能简介
 
 - 将微信缓存的 `.dat` 文件解密为原始图片格式。
-- 支持多种加密版本与自定义 XOR 密钥。
+- 支持微信 3.x 和 4.x 多种加密版本。
 
 ## 特性
 
 - 纯 XOR 解密
 - 支持 V1/V2 两种官方文件头加密格式
-- 可指定任意整数作为异或（XOR）密钥
-- **可以通过模板文件自动查找 XOR 密钥**
+- 可以通过指定密钥解密或者**通过模板文件自动查找密钥**
 
 ## 安装
 
@@ -21,7 +22,7 @@
 ## 使用方法
 
 ```bash
-dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> | -f <template>]
+dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> -a <aesKey> | -f <template>]
 ```
 
 ### 参数说明
@@ -39,19 +40,27 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> | -f <templat
   - `2`：V2 版本，文件头为 `b"\x07\x08V2\x08\x07"`
 
 - `-x, --xorKey`  
-  异或密钥（整型）。**必须与 `-f` 参数二选一**。
+  异或密钥（整型）。**与 `-f` 参数二选一**。
+
+- `-a, --aesKey`  
+  AES 密钥（16位字符串）。**与 `-f` 参数二选一**。
 
 - `-f, --findKey`  
-  模板文件路径。用于辅助查找异或密钥。建议选用 `_t.dat` 结尾的文件作为模板文件。**必须与 `-x` 参数二选一**。
+  模板文件路径。用于辅助查找密钥。建议选用 `_t.dat` 结尾的文件作为模板文件。**与 `-x` 和 `-a` 参数二选一**。
 
 ## 示例
 
 1. 解密 V1 版本微信图片，手动指定异或密钥解密
    ```bash
-   dat2img -i wx_image.dat -o wx_image.jpg -v 1 -x 101
+   dat2img -i wx_image.dat -o wx_image.jpg -v 2 -x 101
    ```
 
-2. 解密 V2 版本微信图片，使用模板文件查找密钥并解密  
+2. 解密 V2 版本微信图片，手动指定密钥解密
+   ```bash
+   dat2img -i wx_image.dat -o wx_image.jpg -v 2 -x 101 -a abcdefgh12345678
+   ```
+
+3. 解密 V2 版本微信图片，使用模板文件查找密钥并解密  
    ```bash
    dat2img -i wx_image.dat -o wx_image.jpg -v 2 -f template_t.dat
    ```
@@ -59,10 +68,10 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> | -f <templat
 ## 常见问题
 
 - **Q:** 解密后图片无法打开？  
-  **A:** 请确认 `version` 与 `xorKey` 设置正确，或尝试不同的 `xorKey`。如果使用 `-f` 参数，请确保模板文件有效。
+  **A:** 请确认 `version`, `xorKey`, `aesKey` 设置正确。如果使用 `-f` 参数，请确保模板文件有效。
 
 - **Q:** 如何选择合适的模板文件？  
-  **A:** 建议使用与目标 `.dat` 文件来自同一微信账号的 `_t.dat` 文件。通常，同一个微信账号使用相同的 XOR 密钥。
+  **A:** 建议使用与目标 `.dat` 文件来自同一微信账号的 `_t.dat` 文件。通常，同一个微信账号使用相同的密钥。
 
 - **Q:** 支持批量解密吗？  
   **A:** 当前版本仅支持单文件操作，可通过 shell 脚本或批处理自行循环调用。

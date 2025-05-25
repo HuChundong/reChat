@@ -61,7 +61,7 @@ dat2img -i <input_path> -o <output_path> [-v <version>] [-x <xorKey> -a <aesKey>
 
 1. 解密 V1 版本微信图片，手动指定异或密钥解密
    ```bash
-   dat2img -i wx_image.dat -o wx_image.jpg -v 2 -x 101
+   dat2img -i wx_image.dat -o wx_image.jpg -v 1 -x 101
    ```
 
 2. 解密 V2 版本微信图片，手动指定密钥解密

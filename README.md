@@ -3,6 +3,8 @@
 > 一个用于解密微信图片文件的工具
 > 
 > 本项目仅供学习交流使用，**可能存在封号风险，请勿用于非法用途**，否则后果自负。
+> 
+> **最近更新**: 代码已上传
 
 ## 功能简介
 
@@ -11,19 +13,21 @@
 
 ## 特性
 
-- 支持 纯 XOR 解密
-- 支持 V1/V2 两种文件加密格式
-- 可以通过指定密钥解密或者**通过模板文件自动查找密钥**
+- 支持微信 3.x 与 4.0 版本解密
+- 支持微信 4.0.3 新的加密格式，**可通过模板文件自动查找密钥**
+- 可以通过指定密钥解密
 
 ## 安装
 
+使用 dat2img.py 文件，或者
 从 [Releases](https://github.com/recarto404/reChat/releases) 页面下载预编译的二进制文件。
 
 ## 使用方法
 
 ```bash
-dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> -a <aesKey> | -f <template>]
+dat2img -i <input_path> -o <output_path> [-v <version>] [-x <xorKey> -a <aesKey> | -f <template>]
 ```
+`-f` 命令会在同目录下生成 `key.dat` AES 密钥缓存文件，第二次使用时将优先尝试缓存密钥。
 
 ### 参数说明
 
@@ -34,7 +38,7 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> -a <aesKey> |
   输出文件路径（如 `output.jpg`、`output.png`）。
 
 - `-v, --version`  
-  `.dat` 文件版本（整型）。  
+  `.dat` 文件版本（整型）。**可选项，不使用将自动判断文件加密版本**
   - `0`：纯 XOR 解密  
   - `1`：V1 版本，文件头为 `b"\x07\x08V1\x08\x07"`  
   - `2`：V2 版本，文件头为 `b"\x07\x08V2\x08\x07"`
@@ -50,6 +54,11 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> -a <aesKey> |
 
 ## 示例
 
+0. **推荐**: 解密微信图片，自动选择加密版本，并使用模板文件查找密钥解密
+   ```bash
+   dat2img -i wx_image.dat -o wx_image.jpg -f template_t.dat
+   ```
+
 1. 解密 V1 版本微信图片，手动指定异或密钥解密
    ```bash
    dat2img -i wx_image.dat -o wx_image.jpg -v 2 -x 101
@@ -60,7 +69,7 @@ dat2img -i <input_path> -o <output_path> -v <version> [-x <xorKey> -a <aesKey> |
    dat2img -i wx_image.dat -o wx_image.jpg -v 2 -x 101 -a abcdefgh12345678
    ```
 
-3. 解密 V2 版本微信图片，使用模板文件查找密钥并解密  
+3. 解密 V2 版本微信图片，使用模板文件查找密钥解密
    ```bash
    dat2img -i wx_image.dat -o wx_image.jpg -v 2 -f template_t.dat
    ```

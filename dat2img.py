@@ -221,13 +221,17 @@ def decrypt_dat_v4(
         aes_size += AES.block_size - aes_size % AES.block_size
 
         aes_data = data[:aes_size]
-        xor_data = data[-xor_size:]
-        raw_data = data[aes_size:-xor_size]
+        raw_data = data[aes_size:]
 
     cipher = AES.new(aes_key, AES.MODE_ECB)
     decrypted_data = Padding.unpad(cipher.decrypt(aes_data), AES.block_size)
 
-    xored_data = bytes(b ^ xor_key for b in xor_data)
+    if xor_size > 0:
+        raw_data = data[aes_size:-xor_size]
+        xor_data = data[-xor_size:]
+        xored_data = bytes(b ^ xor_key for b in xor_data)
+    else:
+        xored_data = b""
 
     # 将解密后的数据写入输出文件
     with open(output_path, "wb") as f:

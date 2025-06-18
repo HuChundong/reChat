@@ -4,7 +4,7 @@
 > 
 > 本项目仅供学习交流使用，**可能存在封号风险，请勿用于非法用途**，否则后果自负。
 > 
-> **最近更新**: 代码已上传
+> **最近更新**: **Web API**
 
 ## 功能简介
 
@@ -13,16 +13,71 @@
 
 ## 特性
 
-- 支持微信 3.x 与 4.0 版本解密
-- 支持微信 4.0.3 新的加密格式，**可通过模板文件自动查找密钥**
-- 可以通过指定密钥解密
+- 支持多个微信版本解密：
+  - 微信 3.x 加密格式
+  - 微信 4.0.0 加密格式
+  - 微信 4.0.3+ 新加密格式
+
+- 灵活的密钥管理：
+  - 自动识别加密版本
+  - 自动查找密钥 (Web API)
+  - 模板文件辅助查找密钥 (命令行)
+  - 密钥缓存功能 (命令行)
+
+- 两种使用方式：
+  - Web API 模式（推荐）
+  - 命令行模式
 
 ## 安装
 
-使用 dat2img.py 文件，或者
 从 [Releases](https://github.com/recarto404/reChat/releases) 页面下载预编译的二进制文件。
 
-## 使用方法
+## 使用方式 (推荐, Web API)
+
+> 使用 `server.py` 文件，或者从 [Releases](https://github.com/recarto404/WxDatDecrypt/releases) 页面下载预编译的二进制文件。
+
+### 启动服务器
+
+```bash
+server -d <weixin_dir>
+```
+
+### 参数说明
+
+- `-d, --dir`  
+  微信文件目录路径（例如：`C:\Users\Admin\Documents\xwechat_files\wxid_pl4c3h0ld3r222_abcd`）
+
+### API 说明
+
+服务器运行在: `http://127.0.0.1:49152`
+
+#### 解密接口
+
+- **端点**: `/decrypt/{file_path:path}`
+- **方法**: `GET`
+- **参数**: file_path - dat文件相对路径
+- **返回**: 解密后的图片文件
+
+### 使用示例
+
+1. 启动服务器: 
+```bash
+server -d "C:\Users\Admin\Documents\xwechat_files\wxid_pl4c3h0ld3r222_abcd"
+```
+
+2. 调用 API: 
+```
+GET http://127.0.0.1:49152/decrypt/msg/attach/cfcd208495d565ef66e7dff9f98764da/2025-06/Img/cfcd208495d565ef66e7dff9f98764da.dat
+```
+
+### 返回说明
+
+- 成功：返回解密后的图片文件
+- 失败：返回错误信息
+
+## 使用方法 (旧, 命令行)
+
+> 使用 `dat2img.py` 文件，或者从 [Releases](https://github.com/recarto404/WxDatDecrypt/releases/tag/v0.0.7) 页面下载预编译的二进制文件。
 
 ```bash
 dat2img -i <input_path> -o <output_path> [-v <version>] [-x <xorKey> -a <aesKey> | -f <template>]
@@ -52,7 +107,7 @@ dat2img -i <input_path> -o <output_path> [-v <version>] [-x <xorKey> -a <aesKey>
 - `-f, --findKey`  
   模板文件路径。用于辅助查找密钥。建议选用 `_t.dat` 结尾的文件作为模板文件。**与 `-x` 和 `-a` 参数二选一**。
 
-## 示例
+### 使用示例
 
 0. **推荐**: 解密微信图片，自动选择加密版本，并使用模板文件查找密钥解密
    ```bash
@@ -90,8 +145,7 @@ dat2img -i <input_path> -o <output_path> [-v <version>] [-x <xorKey> -a <aesKey>
 
 ## 计划
 
-- [ ] 实现对 `wxgf` 格式微信图片的解码支持  
-- [ ] 增加批量处理功能，一次性解密多个文件
+- [ ] 实现对 `wxgf` 格式微信图片的解码支持.
 
 ## 贡献
 

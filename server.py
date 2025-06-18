@@ -1,25 +1,26 @@
 import argparse
-import os
-import struct
-
-from Crypto.Cipher import AES
-from Crypto.Util import Padding
-
+import asyncio
 import ctypes
+import struct
+import sys
 import threading
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-
-import time
 from ctypes import wintypes
-from multiprocessing import freeze_support
-from typing import Any, Literal
-
-from Crypto.Cipher import AES
 from functools import lru_cache
+from multiprocessing import freeze_support
+from pathlib import Path
+from typing import Any
 
 import pymem
 import yara
-
+from Crypto.Cipher import AES
+from Crypto.Util import Padding
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
 # 定义必要的常量
 PROCESS_ALL_ACCESS = 0x1F0FFF
@@ -161,7 +162,6 @@ def get_aes_key(encrypted: bytes, pid: int) -> Any:
     """
     rules = yara.compile(source=rules_key)
 
-
     # 获取内存区域
     process_infos = get_memory_regions(process_handle)
 
@@ -188,32 +188,98 @@ def get_aes_key(encrypted: bytes, pid: int) -> Any:
     return result[0]
 
 
-def dump_wechat_info_v4(encrypted: bytes, pid: int) -> Any:
+def dump_wechat_info_v4(encrypted: bytes, pid: int) -> bytes:
     process_handle = open_process(pid)
     if not process_handle:
-        print(f"[-] 无法打开微信进程: {pid}")
-        return None
+        raise RuntimeError(f"无法打开微信进程: {pid}")
 
     result = get_aes_key(encrypted, pid)
-    return result
+    if isinstance(result, bytes):
+        return result[:16]
+    else:
+        raise RuntimeError("未找到 AES 密钥")
 
 
+def find_key(weixin_dir: Path):
+    """
+    遍历目录下文件, 找到至多 16 个 (.*)_t.dat 文件,
+    收集最后两位字节, 选择出现次数最多的两个字节.
+    """
+    print(f"[+] 读取文件, 收集密钥...")
 
-def decrypt_dat_v3(input_path: str, output_path: str, xor_key: int) -> None:
+    # 查找所有 _t.dat 结尾的文件
+    template_files = list(weixin_dir.rglob("*_t.dat"))[:16]
 
+    if not template_files:
+        raise RuntimeError("未找到模板文件")
+
+    # 收集所有文件最后两个字节
+    last_bytes_list = []
+    for file in template_files:
+        try:
+            with open(file, "rb") as f:
+                # 读取最后两个字节
+                f.seek(-2, 2)
+                last_bytes = f.read(2)
+                last_bytes_list.append(last_bytes)
+        except Exception as e:
+            print(f"[-] 读取文件 {file} 失败: {e}")
+            continue
+
+    if not last_bytes_list:
+        raise RuntimeError("未能成功读取任何模板文件")
+
+    # 使用 Counter 统计最常见的字节组合
+    counter = Counter(last_bytes_list)
+    most_common = counter.most_common(1)[0][0]
+
+    x, y = most_common
+    if (xor_key := x ^ 0xFF) == y ^ 0xD9:
+        print(f"[+] 找到 XOR 密钥: 0x{xor_key:02X}")
+    else:
+        raise RuntimeError("未能找到 XOR 密钥")
+
+    for file in template_files:
+        with open(file, "rb") as f:
+            # 检查文件头
+            if f.read(6) != b"\x07\x08V2\x08\x07":
+                continue
+
+            # 检查文件尾
+            f.seek(-2, 2)
+            if f.read(2) != most_common:
+                continue
+
+            # 读取 AES 密钥
+            f.seek(0xF)
+            ciphertext = f.read(16)
+            break
+    else:
+        raise RuntimeError("未能成功读取任何模板文件")
+
+    try:
+        pm = pymem.Pymem("Weixin.exe")
+        pid = pm.process_id
+        assert isinstance(pid, int)
+    except:
+        raise RuntimeError("找不到微信进程")
+
+    aes_key = dump_wechat_info_v4(ciphertext, pid)
+    print(f"[+] 找到 AES 密钥: {aes_key}")
+
+    return xor_key, aes_key
+
+
+def decrypt_dat_v3(input_path: str | Path, xor_key: int) -> bytes:
     # 读取加密文件的内容
     with open(input_path, "rb") as f:
         data = f.read()
 
     # 将解密后的数据写入输出文件
-    with open(output_path, "wb") as f:
-        f.write(bytes(b ^ xor_key for b in data))
+    return bytes(b ^ xor_key for b in data)
 
 
-def decrypt_dat_v4(
-    input_path: str, output_path: str, xor_key: int, aes_key: bytes
-) -> None:
-
+def decrypt_dat_v4(input_path: str | Path, xor_key: int, aes_key: bytes) -> bytes:
     # 读取加密文件的内容
     with open(input_path, "rb") as f:
         header, data = f.read(0xF), f.read()
@@ -234,16 +300,13 @@ def decrypt_dat_v4(
         xored_data = b""
 
     # 将解密后的数据写入输出文件
-    with open(output_path, "wb") as f:
-        f.write(decrypted_data)
-        f.write(raw_data)
-        f.write(xored_data)
+    return decrypted_data + raw_data + xored_data
 
 
-def decrypt_dat(input_file: str):
+def decrypt_dat(input_file: str | Path) -> int:
     with open(input_file, "rb") as f:
         signature = f.read(6)
-    
+
     match signature:
         case b"\x07\x08V1\x08\x07":
             return 1
@@ -257,112 +320,80 @@ def decrypt_dat(input_file: str):
 
 
 
-def find_key(path: str) -> tuple[Literal[-1], Literal[-1]] | tuple[bytes, int]:
-    with open(path, "rb") as f:
-        f.seek(0xF)
-        encrypted = f.read(16)
-        
-        f.seek(-2, 2)
-        fir, sec = f.read()
+
+
+
+
+
+
+
+
+
+
+app = FastAPI()
+
+# 添加 CORS 中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class WeixinInfo:
+    weixin_dir: Path
+    xor_key: int
+    aes_key: bytes
+
+
+@app.get("/decrypt/{file_path:path}")
+async def decrypt(file_path: str) -> Response:
+    global info
+
+    full_path = info.weixin_dir / file_path
+
+    if not full_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
     
-    if os.path.exists("key.dat"):
-        with open("key.dat", "rb") as f:
-            aes_key = f.read()
+    print(f"[+] 解密文件 {full_path}...")
     
-        if verify(encrypted, aes_key):
-            xor_key = fir ^ 0xFF
-            
-            if xor_key == sec ^ 0xD9 and aes_key:
-                return aes_key, xor_key
-    
-    try:
-        pm = pymem.Pymem("Weixin.exe")
-        pid = pm.process_id
-        assert isinstance(pid, int)
-    except:
-        print(f"[-] 找不到微信进程")
-        return -1, -1
+    version = decrypt_dat(full_path)
+    print(f"[+] 加密版本: v{version}")
+    match version:
+        case 0:
+            data = decrypt_dat_v3(full_path, info.xor_key)
 
-    aes_key = dump_wechat_info_v4(encrypted, pid)
-    
-    xor_key = fir ^ 0xFF
-    if xor_key == sec ^ 0xD9 and aes_key:
-        return aes_key, xor_key
+        case 1:
+            data = decrypt_dat_v4(full_path, info.xor_key, b"cfcd208495d565ef")
 
-    return -1, -1
+        case 2:
+            data = decrypt_dat_v4(full_path, info.xor_key, info.aes_key)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="微信图片解密工具")
-    parser.add_argument("-i", "--input", required=True, help="输入文件路径")
-    parser.add_argument("-o", "--output", required=True, help="输出文件路径")
-    parser.add_argument("-v", "--version", nargs="?", type=int, const=-1, help="dat 文件版本")
-    parser.add_argument("-x", "--xorKey", type=int, help="异或密钥")
-    parser.add_argument("-a", "--aesKey", type=str, help="AES 密钥")
-    parser.add_argument("-f", "--findKey", nargs="?", const="", help="查找异或密钥，可选指定模板文件路径")
-
-    args = parser.parse_args()
-
-    input_file = args.input
-    output_file = args.output
-    version = args.version
-
-    aes_key = b""
-    xor_key = args.xorKey
-
-    if version is None:
-        version = decrypt_dat(input_file)
-    
-    if version == 1:
-        aes_key = b"cfcd208495d565ef"
-
-    if version == 2:
-        if args.findKey is not None:
-            template_path = args.findKey if args.findKey else input_file
-            print("[+] 查找密钥, 使用的文件路径:", os.path.abspath(template_path))
-            aes_key, xor_key = find_key(template_path)
-            if xor_key == -1 or aes_key == -1:
-                print("[-] 未找到匹配的密钥")
-                return
-
-            print(f"[+] 找到 AES 密钥: {aes_key[:16]}")
-            print(f"[+] 找到 XOR 密钥: 0x{xor_key:02X}")
-            with open("key.dat", "wb") as f:
-                f.write(aes_key[:16])
-        
-        elif args.xorKey is None or args.aesKey is None:
-            parser.error("手动设置密钥时必须同时指定 -x/--xorKey 和 -a/--aesKey")
-
-        else:
-            aes_key = args.aesKey.encode()
-
-    print(f"[+] 图片加密版本: v{version}")
-    print("[+] 输入文件路径:", os.path.abspath(input_file))
-    print("[+] 输出文件路径:", os.path.abspath(output_file))
+    return Response(content=data, media_type="image/png")
 
 
-    try:
-        match version:
-            case 0:
-                decrypt_dat_v3(input_file, output_file, xor_key)
-
-            case 1:
-                decrypt_dat_v4(input_file, output_file, xor_key, aes_key)
-
-            case 2:
-                decrypt_dat_v4(input_file, output_file, xor_key, aes_key)
-
-        print("[+] 图片解密完成")
-    except:
-        print("[-] 图片解密失败, 未知错误")
-
+info = WeixinInfo()
 
 if __name__ == "__main__":
     freeze_support()
 
-    st = time.time()
+    parser = argparse.ArgumentParser(description="微信文件解密服务")
+    parser.add_argument("-d", "--dir", help="微信文件目录路径")
+    args = parser.parse_args()
 
-    main()
+    info.weixin_dir = Path(args.dir).resolve()
 
-    et = time.time()
-    print(f"[+] 总用时: {et - st:.2f} 秒")
+    if not info.weixin_dir.exists():
+        print(f"[-] 错误：目录 {info.weixin_dir} 不存在")
+        sys.exit(1)
+
+    print(f"[+] 微信文件目录: {info.weixin_dir}")
+    info.xor_key, info.aes_key = find_key(info.weixin_dir)
+
+    config = Config()
+    config.bind = ["127.0.0.1:49152"]
+    print(f"[+] 服务启动在: http://127.0.0.1:49152")
+    asyncio.run(serve(app, config))  # type: ignore
